@@ -1,0 +1,5 @@
+in AuthContext.jsx
+On app load, checks if a user was already saved in localStorage (so refreshing the page doesn't log you out)
+login() and register() both call your backend, save the returned user+token to localStorage, and update state
+logout() clears everything
+useAuth() is a shortcut hook any component can use to grab user, login, register, logout

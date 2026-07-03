@@ -1,0 +1,33 @@
+setup backend and installed these packages:
+express mongoose dotenv bcryptjs jsonwebtoken cors
+
+1,MongoDB Atlas setup (full walkthrough)
+
+Go to https://www.mongodb.com/cloud/atlas/register
+Sign up using the C3 club Gmail
+
+2,Get your connection string
+
+On the Atlas dashboard, click Connect on your cluster
+Choose "Drivers"
+It shows a connection string like:
+
+mongodb+srv://c3admin:<password>@c3cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
+
+
+3,Generate a JWT Secret
+This is just a random long string used to "sign" your login tokens so no one can fake one. You don't need a special tool — just generate a random string yourself.
+Easiest way, run this in your terminal (Node is already installed):
+bashnode -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+
+POSTMAN ENVIRONMENT SETUP
+- Created environment "C3 Local"
+- Variables: admin_token, member_token
+- After any login request, copy token → paste into 
+  the matching variable's Current Value → Save
+- In Authorization tab of any request, use {{admin_token}} 
+  or {{member_token}} instead of pasting raw tokens
+- Prevents accidentally testing admin routes with member token
+
+npm install cloudinary multer multer-storage-cloudinary
