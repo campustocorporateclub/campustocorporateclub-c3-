@@ -1,0 +1,6 @@
+express — lets you build a server that listens for requests (like "someone hit /login")
+mongoose — the translator between your JavaScript code and MongoDB
+dotenv — reads your .env file so secrets aren't hardcoded in your code
+bcryptjs — scrambles passwords before saving (so even you can't see users' real passwords in the database)
+jsonwebtoken — creates the "login pass" (token) a user gets after logging in
+cors — without this, your frontend (running on a different port) would get blocked from talking to your backend by the browser's security rules

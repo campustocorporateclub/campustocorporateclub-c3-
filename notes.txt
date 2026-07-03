@@ -1,0 +1,39 @@
+The split
+
+Landing site (what your friend made) — outward facing, for recruiting members, showing off the club, convincing people to join. No login needed to browse most of it.
+Platform/dashboard (what we designed) — inward facing, login-only, where actual attendance/sessions/events-with-reports live.
+
+The landing site's "Join C3 Community" button should literally be the signup form that creates a User in your platform. That's the bridge between the two.
+What's worth stealing from that nav (conceptually, not visually)
+Their sectionWhy it's useful for youMaps toWhy C3 ExistsYour About doc has a genuinely good mission story — "learn by teaching," bridging campus to corporate. Put that story on a public page, it's a real differentiatorStatic content pageStudent ProjectsYou mentioned "project showcases have no dedicated platform" as a current problem — this is literally that, solvedNew model: Project (title, tech stack, github link, cover image, contributors[])Meet The TeamPublic trust-builder — shows coordinators/mentors, feels legit to new studentsPull from User where role=coordinatorGalleryEvent photos, separate from the "report" images — more casual/socialCould just be images array tied to eventsJoin CommunityThis is your signup CTAFeeds /register → creates User
+Things I'd add that aren't in either doc but matter for your club specifically
+
+Daily Session Leaderboard/Archive — public page showing "who's presented, on what topic, when." This is a big deal for your vision since the whole club runs on that daily 15-min session thing. Make it visible → creates accountability and lets prospective members see the club is actually active daily, not event-only.
+Achievements banner — DevHouse'25, IDC Nexus'26 placements, hackathon wins. Social proof, put it right on landing.
+Alumni/Placement wall — even just 3-4 seniors with "placed at X company" — huge credibility for a placement-prep-focused club.
+Resources hub (member-only, behind login) — since you said "resources are scattered," a simple page with links/files organized by topic (DSA, web dev, aptitude, etc.)
+
+What I'd skip for now
+Sponsorship page, alumni interaction portal, internal competitions — these are in your "future vision" list but not urgent. Build them when the core (auth + attendance + sessions + events) is solid, not before. Don't let scope creep delay v1.
+Want me to sketch the full sitemap (public pages + auth-gated pages) so you have one clear structure before you start building either the landing site or the dashboard?like tell me all the things we are gonna implement like the features or the pages thenOrganized features and pages by authentication and user rolesOrganized features and pages by authentication and user rolesAlright bro, here's the full picture — everything we're building, organized so it's clear what's public, what needs login, and who can do what.
+🌐 PUBLIC SITE (no login needed)
+PagePurposeHome/LandingHero, mission tagline, stats (members, sessions run, events done), CTA to joinAbout C3The bridging-campus-to-corporate story, vision, what makes it different from a normal clubWhy C3 ExistsThe problem statement — the "clubs are active only during events" pain point, your daily session philosophyEventsGrid of past/upcoming events with cover image + short blurbEvent DetailFull event page — description, cover image, and the report (summary, highlights, attendee count)Student ProjectsShowcase of member-built projects — title, tech stack, GitHub/demo link, contributorsSession ArchivePublic log of daily sessions — date, topic, who handled it. Proves the club is active dailyMeet The TeamCoordinators/mentors with roles and photosAchievementsHackathon wins (DevHouse'25, IDC Nexus'26 etc.), placements, notable resultsGalleryCasual event photosJoin / RegisterSignup form → creates account, pending or auto-approved by adminContactEmail/social links
+🔒 AUTH-GATED PLATFORM (login required)
+Shared (both roles see, different permissions)
+PageMember seesAdmin seesDashboardToday's session, own attendance %, recent announcementsSame + quick actions (mark attendance, add session)SessionsList of all sessions, read-onlyList + create/edit buttonAttendanceOwn attendance history & %Everyone's attendance, mark/edit per sessionEvents (internal)View + RSVP maybeCreate event, upload cover image, write/edit reportResources HubBrowse/download by category (DSA, web dev, aptitude, etc.)Upload/organize resourcesAnnouncementsReadPost/editMy ProfileEdit own info, see own statsSame, plus can view any member's profile
+Admin-only
+PagePurposeMember ManagementAdd/remove members, assign roles, view all member statsReports/AnalyticsAttendance trends, session frequency, event turnout — basic dashboard chartsSession CreatorLog today's session — topic, handler, type (technical/non-technical), notes
+👤 Roles (v1 — keep it to 2)
+
+Admin/Coordinator — full control over sessions, attendance, events, reports, members
+Member — read access to everything relevant to them, can't modify official records
+
+Data models needed
+User, Session, Attendance, Event (with embedded report), Project, Resource, Announcement
+Suggested build order (phases)
+
+Phase 1 — Core auth + dashboard: login, role-based routing, basic dashboard shell (this reuses your HMS AuthContext pattern almost directly)
+Phase 2 — Sessions + Attendance: the daily engine of the club
+Phase 3 — Events + Reports: create event, upload image, write report
+Phase 4 — Public site: landing, about, projects, team, gallery (can actually be built in parallel by someone else on your team since it doesn't depend on backend much)
+Phase 5 — Resources + Announcements + Analytics: polish layer
