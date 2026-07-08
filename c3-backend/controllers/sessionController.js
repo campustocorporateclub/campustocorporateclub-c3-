@@ -4,7 +4,6 @@ import Session from '../models/Session.js';
 export const createSession = async (req, res) => {
   try {
     const { date, topic, type, handledBy, summary } = req.body;
-
     if (!req.files || !req.files.coverImage) {
       return res.status(400).json({ message: 'Cover image is required' });
     }
