@@ -31,3 +31,73 @@ POSTMAN ENVIRONMENT SETUP
 - Prevents accidentally testing admin routes with member token
 
 npm install cloudinary multer multer-storage-cloudinary
+
+
+=====================================
+SESSION: Cloudinary fix + Sessions/Attendance/Events verified + Events built
+=====================================
+
+1. FIXED: Cloudinary "Must supply api_key" error
+   - Root cause: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, 
+     CLOUDINARY_API_SECRET were missing from actual .env file
+     (only existed in planning notes, never got written to disk)
+   - Fix: added all three to .env from Cloudinary dashboard 
+     (Settings → API Keys)
+
+2. TESTED full Session + Attendance chain in Postman (all passed):
+   - POST /api/sessions with real image files (coverImage + images)
+     -> confirmed real Cloudinary URLs returned, images load in browser
+   - GET /api/sessions (list) -> works
+   - GET /api/sessions/:id (detail) -> works
+   - PUT /api/sessions/:id/absentees -> works
+   - GET /api/attendance/:memberId -> percentage math correct
+   - GET /api/attendance/all -> percentage math correct
+
+   GOTCHA LEARNED: stray leading space in a Postman form-data 
+   KEY name (e.g. " date" instead of "date") silently breaks 
+   the field -- looks identical in the UI but Express receives 
+   a different key entirely. Debug trick: add 
+   console.log(req.body) in the controller temporarily to see 
+   the RAW keys received, spaces and all. Removed after confirming.
+
+3. BUILT Events feature (model + controller + routes):
+   - models/Event.js: title, description, date, coverImage 
+     (required), summary, attendeeCount, highlights, createdBy
+   - Only ONE cover image per event (no gallery array, unlike Sessions)
+   - summary/attendeeCount/highlights left optional at creation 
+     -- filled in later via PUT once the event has actually 
+     happened (the "report")
+   - controllers/eventController.js: same CRUD shape as 
+     sessionController.js (create/list/detail/update), same 
+     Cloudinary upload pattern
+   - routes/eventRoutes.js: same admin-only gating as Sessions
+   - Wired into server.js: app.use('/api/events', eventRoutes)
+   - TESTED in Postman: create with real image -> 201 + real 
+     Cloudinary URL, GET all, GET by id, PUT to add report 
+     (summary/attendeeCount/highlights) -- all passed, partial 
+     update confirmed working (title/description/coverImage 
+     untouched when only report fields were sent)
+
+4. JWT expiry changed: 7d -> 180d (6 months)
+   - In authController.js generateToken()
+   - IMPORTANT GOTCHA: jsonwebtoken's expiresIn uses 'd' for 
+     days, NOT 'm' for months -- 'm' means MINUTES in this 
+     library. Always write '180d', never '6m'. Left a comment 
+     in the code as a warning for future devs.
+   - Only affects tokens issued AFTER the change -- old tokens 
+     in Postman still expire on their original schedule
+
+5. NOTED FOR LATER (not built yet): 
+   - Event model may need an eventType field + teams array for 
+     hackathon-style events (teams of volunteers guiding 
+     juniors) -- current Event model only covers the simple 
+     case (talks/workshops). Additive change, won't break 
+     existing events when we get to it.
+
+STILL PENDING (per original plan):
+   - Frontend pages for Sessions (list + detail + admin form)
+   - Frontend pages for Attendance (member view + admin view)
+   - Frontend pages for Events
+   - UI/styling polish pass
+   - Rotate MongoDB password + JWT_SECRET + Cloudinary API 
+     secret (all were pasted in chat at some point)
