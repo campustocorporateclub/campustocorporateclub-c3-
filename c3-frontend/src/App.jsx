@@ -9,6 +9,7 @@ import SessionDetail from './pages/SessionDetail';
 import SessionForm from './pages/SessionForm';
 import MyAttendance from './pages/MyAttendance';
 import AllAttendance from './pages/AllAttendance';
+import Hero from './components/Hero';
 function App() {
   return (
     <AuthProvider>
@@ -16,6 +17,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/home-preview" element={<Hero />} />
           <Route
             path="/dashboard"
             element={
