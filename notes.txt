@@ -37,3 +37,16 @@ Phase 2 — Sessions + Attendance: the daily engine of the club
 Phase 3 — Events + Reports: create event, upload image, write report
 Phase 4 — Public site: landing, about, projects, team, gallery (can actually be built in parallel by someone else on your team since it doesn't depend on backend much)
 Phase 5 — Resources + Announcements + Analytics: polish layer
+
+so this intro page you have made you have to implement in our project work like react and then from there we can open the dashboard of particular person that we have build but this pages suck in ui like looks like ai generated and that top campus to corporate club batch is not good and instead of cards displaying can we try any other approach and change the ui completely since it is a professional website 
+bro like i hope you get the point like initially there are three perspective 
+
+1, anyone viewing our website will see this website with 5 pages as it is here 
+
+home ,about us ,contacts,events,etc
+
+2, if its an admin then he logs in with the credentials and then he has the access and whatever we have discussed and done in our background 
+
+3, and as a c3 member login that also we have discussed so 
+
+point is for non club members the intro pages will open and for the club members directly open the dashboard if they have logged in once right only if clicked logout they come back
