@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+.font-display { font-family: 'Bricolage Grotesque', sans-serif; letter-spacing: -0.01em; }
+.font-body { font-family: 'Manrope', sans-serif; }
+.font-hud { font-family: 'IBM Plex Mono', monospace; }
+
+/* ============ HEADING GRADIENT ============
+   Sailor Blue & Mint, sweeping LEFT -> RIGHT (position goes from a high
+   value down to 0, which is what actually reads as left-to-right motion),
+   slowed down to 9s so it feels like a calm current, not a flicker. */
+@keyframes gradientFlow {
+  0%   { background-position: 200% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.grad-heading {
+  background: linear-gradient(
+    90deg,
+    #ADEFD1 0%, #6FBFA8 20%, #00203F 40%,
+    #ADEFD1 60%, #6FBFA8 80%, #00203F 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gradientFlow 9s linear infinite;
+}
+
+.hud-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: rgba(173, 239, 209, 0.8);
+  position: absolute;
+}
+
+/* Glitch duplicate layers - now palette colors (mint / steel-blue) instead
+   of red/cyan. The old red layer, blended with mix-blend: screen over a
+   dark background, read as an orange-red wash rather than a clean glitch -
+   this keeps the split-channel look without the off-brand color cast. */
+.glitch-layer {
+  position: absolute;
+  inset: 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ============ PRELOADER: scan line + boot sequence ============ */
+@keyframes scanSweep {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 0.5; }
+  90%  { opacity: 0.5; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+.preloader-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ADEFD1, transparent);
+  animation: scanSweep 1.6s linear infinite;
+}
+
+/* Faint grain texture over the whole hero for a bit of premium tactility -
+   cheap (pure CSS/SVG), no added dependency. */
+.grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 640px) {
+  .hud-text { font-size: 8px; letter-spacing: 0.1em; }
+  .preloader-ring-wrap svg { width: 84px; height: 84px; }
+}
+
+@media (max-width: 480px) {
+  .hero-lightning-svg { display: none; } /* keeps small screens clean/legible */
+}
