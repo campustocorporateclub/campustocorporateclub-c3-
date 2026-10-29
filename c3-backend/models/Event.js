@@ -28,4 +28,6 @@ eventSchema.pre('save', function () {
   }
 });
 
+eventSchema.index({ date: 1 });
+
 export default mongoose.model('Event', eventSchema);

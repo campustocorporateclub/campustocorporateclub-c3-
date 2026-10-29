@@ -1,17 +1,11 @@
 .marquee-viewport {
-  overflow-x: auto;
-  overflow-y: hidden;
+  position: relative;
   width: 100%;
-  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  touch-action: pan-x;
+  overflow: hidden;
+  touch-action: pan-y;
   cursor: grab;
-}
-
-.marquee-viewport::-webkit-scrollbar {
-  display: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .marquee-viewport:active {
@@ -21,27 +15,11 @@
 .marquee-track {
   display: flex;
   width: max-content;
-  animation-name: marquee-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
 .marquee-content {
   display: flex;
   flex-shrink: 0;
-}
-
-.marquee-pause-hover:hover,
-.marquee-viewport:active .marquee-track {
-  animation-play-state: paused;
-}
-
-@keyframes marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
 }

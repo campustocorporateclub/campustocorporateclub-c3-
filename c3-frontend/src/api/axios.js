@@ -2,10 +2,11 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
+  timeout: 8000,
 });
 
 /* ==========================================================================
-   Slow Server Connection Banner (> 5 seconds in-flight)
+   Slow Server Connection Banner (> 4 seconds in-flight)
    ========================================================================== */
 let activeInFlightRequests = 0;
 let slowRequestTimer = null;
@@ -48,7 +49,7 @@ function trackRequestStart() {
       if (activeInFlightRequests > 0) {
         showConnectingBanner();
       }
-    }, 5000);
+    }, 4000);
   }
 }
 
@@ -59,9 +60,17 @@ function trackRequestEnd() {
   }
 }
 
-// Automatically inject JWT token from localStorage if present
+// Automatically inject JWT token from localStorage if present; reject immediately if offline
 api.interceptors.request.use(
   (config) => {
+    // If client is definitively offline, reject immediately without 10-second TCP stall
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const offlineErr = new Error('You are offline. Turn on your internet to continue.');
+      offlineErr.code = 'ERR_OFFLINE';
+      offlineErr.isOffline = true;
+      return Promise.reject(offlineErr);
+    }
+
     if (!config.silent) {
       trackRequestStart();
     }
@@ -99,19 +108,18 @@ api.interceptors.response.use(
   async (error) => {
     const config = error.config;
 
-    // Retry only GET requests on network failure or 502/503/504 server sleep (unless marked silent)
+    // Retry only GET requests on 502/503/504 server sleep (at most 1 retry with 1s delay)
     if (config && !config.silent) {
+      const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
       const method = (config.method || 'get').toLowerCase();
       const status = error.response?.status;
       const isRetryableStatus = status === 502 || status === 503 || status === 504;
-      const isNetworkError = !error.response;
 
-      if (method === 'get' && (isNetworkError || isRetryableStatus)) {
+      if (!isOffline && method === 'get' && isRetryableStatus) {
         config.__retryCount = config.__retryCount || 0;
-        if (config.__retryCount < 2) {
+        if (config.__retryCount < 1) {
           config.__retryCount += 1;
-          const delayMs = config.__retryCount === 1 ? 2000 : 4000;
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           return api(config);
         }
       }

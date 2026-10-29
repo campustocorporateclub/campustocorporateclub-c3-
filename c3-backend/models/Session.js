@@ -15,4 +15,7 @@ const sessionSchema = new mongoose.Schema({
   attendanceMarkedAt: { type: Date },
 }, { timestamps: true });
 
+sessionSchema.index({ date: -1, status: 1 });
+sessionSchema.index({ status: 1 });
+
 export default mongoose.model('Session', sessionSchema);

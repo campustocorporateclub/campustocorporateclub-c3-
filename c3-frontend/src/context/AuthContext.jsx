@@ -104,11 +104,11 @@ export const AuthProvider = ({ children }) => {
       refreshUser();
     }
 
-    // Re-check /auth/me when the tab becomes visible or focused (4-second debounce for fast switching)
+    // Re-check /auth/me when the tab becomes visible or focused (60-second debounce to prevent lag on mobile app switching)
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
-        if (now - lastCheckedRef.current >= 4000) {
+        if (now - lastCheckedRef.current >= 60000) {
           refreshUser();
         }
       }

@@ -26,31 +26,83 @@ import { ClubPulse } from '../../components/dashboard/ClubPulse';
 import { CoordinatorsCard } from '../../components/dashboard/CoordinatorsCard';
 import { DashboardSkeleton } from '../../components/dashboard/DashboardSkeleton';
 import { InstallAppCard } from '../../components/pwa/InstallAppCard';
+import { OfflineState } from '../../components/common/OfflineState';
+
+const getCacheKey = (userId) => `c3_dash_cache_${userId || 'guest'}`;
+
+const getInitialCachedData = (userId) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(getCacheKey(userId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 export const Dashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const userId = user?._id || user?.id || '';
+
+  const [dashboardData, setDashboardData] = useState(() => getInitialCachedData(userId));
+  const [loading, setLoading] = useState(() => !getInitialCachedData(userId));
   const [error, setError] = useState('');
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+
+  // Monitor online/offline events for instantaneous responsiveness
+  useEffect(() => {
+    const onOnline = () => setIsOffline(false);
+    const onOffline = () => setIsOffline(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOffline(true);
+      setError('You are offline. Turn on your internet connection to continue.');
+      setLoading(false);
+      return;
+    }
+
+    setIsOffline(false);
+    // If we already have cached data rendered, don't show skeleton again to prevent UI jump
+    if (!dashboardData) {
+      setLoading(true);
+    }
     setError('');
+
     try {
       const res = await axios.get('/dashboard');
       setDashboardData(res.data);
+      if (typeof window !== 'undefined' && userId) {
+        try {
+          sessionStorage.setItem(getCacheKey(userId), JSON.stringify(res.data));
+        } catch {}
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
-      setError(err.response?.data?.message || 'Failed to connect to dashboard service');
+      if (err.isOffline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        setIsOffline(true);
+      }
+      setError(
+        err.isOffline || !navigator.onLine
+          ? 'You are offline. Turn on your internet to continue.'
+          : err.response?.data?.message || 'Failed to connect to dashboard service'
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dashboardData, userId]);
 
   useEffect(() => {
     fetchDashboard();
-  }, [fetchDashboard]);
+  }, []);
 
   // Keep admin strictly on /admin - if admin accesses /dashboard, redirect to /admin
   if (user?.role === 'admin' && location.pathname === '/dashboard') {
@@ -64,18 +116,30 @@ export const Dashboard = () => {
         data={dashboardData}
         loading={loading}
         error={error}
+        isOffline={isOffline}
         onRetry={fetchDashboard}
       />
     );
   }
 
-  // Regular Member Loading Skeleton
-  if (loading) {
+  // If totally offline and no cached data to display, render clean offline screen immediately
+  if ((isOffline || error.includes('offline')) && !dashboardData) {
+    return (
+      <OfflineState
+        onRetry={fetchDashboard}
+        title="You are offline"
+        description="Please turn on your internet connection to view the dashboard."
+      />
+    );
+  }
+
+  // Regular Member Loading Skeleton (only on first ever visit with no cache)
+  if (loading && !dashboardData) {
     return <DashboardSkeleton />;
   }
 
-  // Error State with Retry
-  if (error) {
+  // Error State with Retry (when not offline or when offline with no cache)
+  if (error && !dashboardData) {
     return (
       <div className="p-6 sm:p-8 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 space-y-4 shadow-xl">
         <div className="flex items-center gap-3">

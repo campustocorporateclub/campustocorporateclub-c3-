@@ -28,6 +28,7 @@ import CountUp from '../reactbits/CountUp';
 import { DOMAIN_OPTIONS } from '../../constants/domains';
 import { CoordinatorsCard } from './CoordinatorsCard';
 import { InstallAppCard } from '../pwa/InstallAppCard';
+import { OfflineState } from '../common/OfflineState';
 
 const domainLabel = (value) => DOMAIN_OPTIONS.find((d) => d.value === value)?.label || value || 'General';
 
@@ -62,8 +63,18 @@ const STATUS_BADGE = {
   rejected: { variant: 'danger', label: 'Rejected' },
 };
 
-export const AdminOverview = ({ data, loading, error, onRetry }) => {
-  if (loading) {
+export const AdminOverview = ({ data, loading, error, isOffline, onRetry }) => {
+  if ((isOffline || (error && error.includes('offline'))) && !data) {
+    return (
+      <OfflineState
+        onRetry={onRetry}
+        title="You are offline"
+        description="Please turn on your internet connection to view real-time club operations."
+      />
+    );
+  }
+
+  if (loading && !data) {
     return (
       <div className="py-24 flex items-center justify-center">
         <Loader size="lg" label="Loading real-time club operations data..." />
@@ -71,7 +82,7 @@ export const AdminOverview = ({ data, loading, error, onRetry }) => {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 space-y-3">
         <div className="flex items-center gap-3">

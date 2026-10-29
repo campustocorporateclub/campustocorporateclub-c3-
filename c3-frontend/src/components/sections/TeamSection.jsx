@@ -391,17 +391,17 @@ const CoreMemberCard = ({ member }) => (
 
 const CoreMemberRow = ({ members, direction, delayStart }) => {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.3 });
+  const inView = useInView(ref, { once: true, amount: 0.2 });
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0 }}
       animate={inView ? { opacity: 1 } : {}}
-      transition={{ duration: 0.6, delay: delayStart }}
+      transition={{ duration: 0.5, delay: delayStart }}
       className="mb-3.5 last:mb-0 select-none"
     >
-      <Marquee direction={direction} speed={18} pauseOnHover>
+      <Marquee direction={direction} speed={24} pauseOnHover>
         <div className="flex gap-3.5 pr-3.5">
           {members.map(member => (
             <CoreMemberCard key={member.name} member={member} />
@@ -472,8 +472,8 @@ export const TeamSection = () => {
               className="text-xs uppercase tracking-widest text-[#71717A]"
             />
           )}
-          <span className="text-[11px] text-[#71717A] hidden sm:inline-block">
-            Hover to pause • Drag / Swipe horizontally to browse
+          <span className="text-[10px] sm:text-[11px] text-[#71717A] inline-block font-mono">
+            ← Drag or swipe horizontally to browse →
           </span>
         </div>
         <CoreMemberRow members={CORE_ROW_1} direction="left" delayStart={0} />
