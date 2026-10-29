@@ -32,4 +32,7 @@ const announcementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+announcementSchema.index({ type: 1, isActive: 1, date: -1 });
+announcementSchema.index({ type: 1, createdAt: -1 });
+
 export default mongoose.model('Announcement', announcementSchema);

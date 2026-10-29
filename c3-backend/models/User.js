@@ -16,4 +16,7 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: { type: Date },
 }, { timestamps: true });
 
+userSchema.index({ role: 1, isApproved: 1 });
+userSchema.index({ isApproved: 1 });
+
 export default mongoose.model('User', userSchema);

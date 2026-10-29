@@ -17,6 +17,9 @@ export default defineConfig({
             if (id.includes('gsap') || id.includes('lenis') || id.includes('motion')) {
               return 'vendor-motion-gsap';
             }
+            if (id.includes('three') || id.includes('ogl')) {
+              return 'vendor-3d';
+            }
             if (id.includes('lucide-react') || id.includes('react-icons')) {
               return 'vendor-icons';
             }

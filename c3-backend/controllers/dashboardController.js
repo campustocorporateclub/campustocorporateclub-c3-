@@ -29,6 +29,62 @@ const sanitizeSessionAnnouncement = (s) => {
   };
 };
 
+// Short-lived in-memory cache for club-wide public stats (15 seconds TTL)
+let clubSharedCache = null;
+let clubSharedCacheTime = 0;
+const SHARED_CACHE_TTL = 15000;
+
+async function getSharedClubStats(now) {
+  const isFresh = clubSharedCache && (Date.now() - clubSharedCacheTime < SHARED_CACHE_TTL);
+  if (isFresh) {
+    return clubSharedCache;
+  }
+
+  const [
+    upcomingEvents,
+    recentEvents,
+    totalSessions,
+    totalEvents,
+    totalMembers,
+    coordinators,
+  ] = await Promise.all([
+    // upcoming events
+    Event.find({ date: { $gte: now } })
+      .sort({ date: 1 })
+      .limit(3)
+      .select('_id slug title date coverImage category')
+      .lean(),
+    // recent events
+    Event.find({ date: { $lt: now } })
+      .sort({ date: -1 })
+      .limit(3)
+      .select('_id slug title date coverImage category')
+      .lean(),
+    // total held sessions
+    Session.countDocuments({ status: { $ne: 'cancelled' } }),
+    // total events
+    Event.countDocuments(),
+    // total approved members
+    User.countDocuments({ $or: [{ isApproved: true }, { role: 'admin' }] }),
+    // active coordinators
+    User.find({ role: 'coordinator', isApproved: true })
+      .sort({ name: 1 })
+      .select('_id name year section')
+      .lean(),
+  ]);
+
+  clubSharedCache = {
+    upcomingEvents,
+    recentEvents,
+    totalSessions,
+    totalEvents,
+    totalMembers,
+    coordinators: coordinators || [],
+  };
+  clubSharedCacheTime = Date.now();
+  return clubSharedCache;
+}
+
 export const getDashboardData = async (req, res) => {
   try {
     const user = req.user;
@@ -39,8 +95,8 @@ export const getDashboardData = async (req, res) => {
     const now = new Date();
     const userCutoff = getAttendanceCutoff(user);
 
-    // Queries common to everyone (members and admins)
-    const baseQueries = [
+    // Run shared cache retrieval along with member-specific queries in parallel
+    const memberQueries = [
       // 0: member attendance (includes percentage, totalSessions, history, currentStreak)
       calculateMemberAttendance(user),
 
@@ -54,71 +110,47 @@ export const getDashboardData = async (req, res) => {
         .select('_id date topic handledBy type absentees')
         .lean(),
 
-      // 3: upcoming events (next 3 with date >= now)
-      Event.find({ date: { $gte: now } })
-        .sort({ date: 1 })
-        .limit(3)
-        .select('_id slug title date coverImage category')
-        .lean(),
-
-      // 4: recent events (latest 3 past events)
-      Event.find({ date: { $lt: now } })
-        .sort({ date: -1 })
-        .limit(3)
-        .select('_id slug title date coverImage category')
-        .lean(),
-
-      // 5: total held sessions
-      Session.countDocuments({ status: { $ne: 'cancelled' } }),
-
-      // 6: total events
-      Event.countDocuments(),
-
-      // 7: total approved members
-      User.countDocuments({ $or: [{ isApproved: true }, { role: 'admin' }] }),
-
-      // 8: active coordinators list (names only, id and year) for everyone
-      User.find({ role: 'coordinator', isApproved: true })
-        .sort({ name: 1 })
-        .select('_id name year section')
-        .lean(),
+      // 3: shared club stats (cached)
+      getSharedClubStats(now),
     ];
 
     // If Admin, append admin queries to execute concurrently
     if (user.role === 'admin') {
-      baseQueries.push(
-        // 9: pending approvals count (excluding admins)
+      memberQueries.push(
+        // 4: pending approvals count (excluding admins)
         User.countDocuments({ isApproved: false, role: { $ne: 'admin' } }),
-        // 10: pending applications count (never drafts)
+        // 5: pending applications count (never drafts)
         Application.countDocuments({ status: 'pending' }),
-        // 11: recent applications (latest 5 non-draft)
+        // 6: recent applications (latest 5 non-draft)
         Application.find({ status: { $ne: 'draft' } })
           .sort({ createdAt: -1 })
           .limit(5)
           .select('fullName preferredDomain year status createdAt')
           .lean(),
-        // 12: approved members for attendance calculation
+        // 7: approved members for attendance calculation
         User.find({ $or: [{ isApproved: true }, { role: 'admin' }] })
           .select('_id name email section year role createdAt attendanceStartDate')
           .lean(),
-        // 13: all held sessions for attendance calculation
+        // 8: all held sessions for attendance calculation
         Session.find({ status: { $ne: 'cancelled' } })
           .select('_id date absentees')
           .lean()
       );
     }
 
-    const results = await Promise.all(baseQueries);
+    const results = await Promise.all(memberQueries);
 
     const attendance = results[0];
     const announcementsData = results[1];
     const rawRecentSessions = results[2];
-    const upcomingEvents = results[3];
-    const recentEvents = results[4];
-    const totalSessions = results[5];
-    const totalEvents = results[6];
-    const totalMembers = results[7];
-    const coordinators = results[8] || [];
+    const sharedStats = results[3];
+
+    const upcomingEvents = sharedStats.upcomingEvents;
+    const recentEvents = sharedStats.recentEvents;
+    let totalSessions = sharedStats.totalSessions;
+    const totalEvents = sharedStats.totalEvents;
+    let totalMembers = sharedStats.totalMembers;
+    const coordinators = sharedStats.coordinators;
 
     const me = {
       name: user.name || '',
@@ -163,11 +195,20 @@ export const getDashboardData = async (req, res) => {
 
     // Admin Payload
     if (user.role === 'admin') {
-      const pendingApprovalsCount = results[9];
-      const pendingApplicationsCount = results[10];
-      const recentApplications = results[11];
-      const approvedMembers = results[12];
-      const allHeldSessions = results[13];
+      const pendingApprovalsCount = results[4];
+      const pendingApplicationsCount = results[5];
+      const recentApplications = results[6];
+      const approvedMembers = results[7] || [];
+      const allHeldSessions = results[8] || [];
+
+      if (approvedMembers.length > 0) {
+        totalMembers = approvedMembers.length;
+        club.totalMembers = totalMembers;
+      }
+      if (allHeldSessions.length > 0) {
+        totalSessions = allHeldSessions.length;
+        club.totalSessions = totalSessions;
+      }
 
       let lowAttendanceMembers = [];
       if (allHeldSessions.length > 0 && approvedMembers.length > 0) {

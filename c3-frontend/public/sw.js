@@ -1,8 +1,6 @@
-// Campus to Corporate Club (C3) - Service Worker (PWA Caching & Web Push)
-const CACHE_VERSION = 'c3-portal-v2';
+// Campus to Corporate Club (C3) - Service Worker (Lightweight PWA & Web Push)
+const CACHE_VERSION = 'c3-portal-v3';
 const OFFLINE_URL = '/offline.html';
-const MAX_RUNTIME_ENTRIES = 60;
-const MAX_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const PRECACHE_ASSETS = [
   OFFLINE_URL,
@@ -14,45 +12,7 @@ const PRECACHE_ASSETS = [
   '/favicon.ico?v=2',
 ];
 
-// Helper: Trim runtime cache to ~60 entries and evict stale items older than 30 days
-async function trimRuntimeCache(cache) {
-  try {
-    const keys = await cache.keys();
-    const now = Date.now();
-
-    // 1. Evict entries older than 30 days based on response Date header
-    for (const req of keys) {
-      const res = await cache.match(req);
-      if (res) {
-        const dateHeader = res.headers.get('date');
-        if (dateHeader) {
-          const resTime = new Date(dateHeader).getTime();
-          if (!isNaN(resTime) && now - resTime > MAX_CACHE_AGE_MS) {
-            await cache.delete(req);
-          }
-        }
-      }
-    }
-
-    // 2. Cap total entries at MAX_RUNTIME_ENTRIES (protecting core shell files)
-    const remainingKeys = await cache.keys();
-    if (remainingKeys.length > MAX_RUNTIME_ENTRIES) {
-      const toRemove = remainingKeys.length - MAX_RUNTIME_ENTRIES;
-      for (let i = 0; i < toRemove; i++) {
-        const keyUrl = new URL(remainingKeys[i].url);
-        if (
-          keyUrl.pathname !== OFFLINE_URL &&
-          keyUrl.pathname !== '/manifest.webmanifest' &&
-          !keyUrl.pathname.startsWith('/icons/')
-        ) {
-          await cache.delete(remainingKeys[i]);
-        }
-      }
-    }
-  } catch {}
-}
-
-// Install: Pre-cache offline fallback and core shell assets (waits for message to skip waiting)
+// Install: Pre-cache offline fallback and core shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE_ASSETS))
@@ -82,6 +42,25 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Helper: fetch with timeout so slow/dead connections don't hang for 10-30s
+function fetchWithTimeout(request, timeoutMs = 2500) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Network timeout'));
+    }, timeoutMs);
+
+    fetch(request)
+      .then((response) => {
+        clearTimeout(timer);
+        resolve(response);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 // Fetch: Route requests by type
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -100,61 +79,65 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Navigation requests (HTML pages): Network-first with offline.html fallback
+  // 2. Navigation requests (HTML pages): Network-first with fast 2.5s timeout and offline.html fallback
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(async () => {
+      fetchWithTimeout(req, 2500).catch(async () => {
         const cache = await caches.open(CACHE_VERSION);
         const cachedOffline = await cache.match(OFFLINE_URL);
-        return cachedOffline || Response.error();
+        return (
+          cachedOffline ||
+          new Response(
+            '<!doctype html><html><body><h1>You are offline</h1><p>Please turn on the internet and reload.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          )
+        );
       })
     );
     return;
   }
 
-  // 3. Static assets: Stale-While-Revalidate (Same-origin assets, icons, fonts, styles, scripts)
-  const isSameOriginStatic =
-    url.origin === self.location.origin &&
-    (url.pathname.startsWith('/assets/') ||
-      url.pathname.startsWith('/icons/') ||
-      url.pathname.endsWith('.js') ||
-      url.pathname.endsWith('.css') ||
-      url.pathname.endsWith('.png') ||
-      url.pathname.endsWith('.jpg') ||
-      url.pathname.endsWith('.jpeg') ||
-      url.pathname.endsWith('.svg') ||
-      url.pathname.endsWith('.woff2') ||
-      url.pathname.endsWith('.woff') ||
-      url.pathname.endsWith('.ttf') ||
-      url.pathname === '/manifest.webmanifest' ||
-      url.pathname === '/favicon.ico' ||
-      url.pathname === OFFLINE_URL);
-
-  const isExternalFont =
+  // 3. Static assets: Cache-First or Stale-While-Revalidate without heavy background loops
+  const isStatic =
+    (url.origin === self.location.origin &&
+      (url.pathname.startsWith('/assets/') ||
+        url.pathname.startsWith('/icons/') ||
+        url.pathname.endsWith('.js') ||
+        url.pathname.endsWith('.css') ||
+        url.pathname.endsWith('.png') ||
+        url.pathname.endsWith('.jpg') ||
+        url.pathname.endsWith('.jpeg') ||
+        url.pathname.endsWith('.svg') ||
+        url.pathname.endsWith('.woff2') ||
+        url.pathname.endsWith('.woff') ||
+        url.pathname.endsWith('.ttf') ||
+        url.pathname === '/manifest.webmanifest' ||
+        url.pathname === '/favicon.ico' ||
+        url.pathname === OFFLINE_URL)) ||
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
     url.hostname.includes('fontshare.com');
 
-  if (isSameOriginStatic || isExternalFont) {
+  if (isStatic) {
     event.respondWith(
-      caches.open(CACHE_VERSION).then(async (cache) => {
-        const cachedResponse = await cache.match(req);
-
-        const fetchPromise = fetch(req)
+      caches.match(req).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(req)
           .then((networkResponse) => {
             if (
               networkResponse &&
               (networkResponse.status === 200 || networkResponse.type === 'opaque')
             ) {
-              cache.put(req, networkResponse.clone());
-              // Trim cache asynchronously after storing
-              trimRuntimeCache(cache);
+              const resClone = networkResponse.clone();
+              caches.open(CACHE_VERSION).then((cache) => {
+                cache.put(req, resClone);
+              });
             }
             return networkResponse;
           })
           .catch(() => cachedResponse);
-
-        return cachedResponse || fetchPromise;
       })
     );
   }
